@@ -44,6 +44,21 @@ int32_t osx_userial_open(const char* serial_port, uint32_t baud_rate, struct use
   tcgetattr(fd, &options);
 
   speed_t baud = baud_rate;
+  switch(baud) {
+    case 4800:    baud = B4800; break;
+    case 9600:    baud = B9600; break;
+#ifdef B14400
+    case 14400:   baud = B14400; break;
+#endif
+    case 19200:   baud = B19200; break;
+#ifdef B28800
+    case 28800:   baud = B28800; break;
+#endif
+    case 38400:   baud = B38400; break;
+    case 57600:   baud = B57600; break;
+    case 115200:  baud = B115200; break;
+  }
+
   cfsetispeed(&options, baud);
   cfsetospeed(&options, baud);
 
