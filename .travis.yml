@@ -1,10 +1,11 @@
-language: C
+language: c
 
 compiler:
  - gcc
  - clang
 
 os:
+  - linux
   - osx
 
 script:
