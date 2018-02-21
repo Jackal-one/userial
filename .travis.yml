@@ -1,4 +1,12 @@
 language: C
+
+compiler:
+ - gcc
+ - clang
+
+os:
+  - osx
+
 script:
   - mkdir build
   - cd build
