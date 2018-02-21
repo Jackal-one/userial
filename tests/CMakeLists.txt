@@ -1,0 +1,2 @@
+add_executable(userial_c test_c_compilation.c)
+add_executable(userial_cpp test_cpp_compilation.cpp)
