@@ -26,14 +26,17 @@ int userial_create_api(struct userial_api_i** userial_api, uint32_t flags);
 
 #ifdef USERIAL_IMPL
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/serial/ioss.h>
-
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h> 
 #include <termios.h>
 #include <sys/ioctl.h>
 
-int32_t osx_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
+#if (__APPLE__)
+  #include <IOKit/serial/ioss.h>
+#endif // __APPLE__
+
+int32_t unix_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
   int fd = open(serial_port, O_RDWR | O_NONBLOCK);
   if (fd == -1) {
     printf("userial: couldn't open %s port!\n", serial_port);
@@ -86,24 +89,24 @@ int32_t osx_userial_open(const char* serial_port, uint32_t baud_rate, struct use
   return 1;
 }
 
-int32_t osx_close(struct userial_port_t* port) {
+int32_t unix_close(struct userial_port_t* port) {
   return close(port->handle);
 }
 
-int osx_write(struct userial_port_t* port, uint8_t data) {
+int unix_write(struct userial_port_t* port, uint8_t data) {
   const int written_bytes = write(port->handle, &data, 1u);
   return (written_bytes == 1);
 }
 
-int osx_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+int unix_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
   return read(port->handle, data, num_bytes);
 }
 
 static struct userial_api_i g_userial_api = {
-  .open = osx_userial_open,
-  .close = osx_close,
-  .write = osx_write,
-  .read = osx_read,
+  .open = unix_userial_open,
+  .close = unix_close,
+  .write = unix_write,
+  .read = unix_read,
 };
 
 int userial_create_api(struct userial_api_i** userial_api, uint32_t flags) {
