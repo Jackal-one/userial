@@ -93,7 +93,7 @@ static struct userial_api_i g_userial_api = {
 
 int userial_create_api(struct userial_api_i** userial_api, uint32_t flags) {
   (*userial_api) = &g_userial_api;
-  return 0;
+  return 1;
 }
 
 #endif
