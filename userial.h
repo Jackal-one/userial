@@ -72,14 +72,12 @@ int32_t osx_userial_open(const char* serial_port, uint32_t baud_rate, struct use
 }
 
 int32_t osx_close(struct userial_port_t* port) {
-  close(port->handle);
-  return 0u;
+  return close(port->handle);
 }
 
 int osx_write(struct userial_port_t* port, uint8_t data) {
-  write(port->handle, &data, 1u);
-  printf("write: %d!\n", data);
-  return 1;
+  const int written_bytes = write(port->handle, &data, 1u);
+  return (written_bytes == 1);
 }
 
 int osx_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
