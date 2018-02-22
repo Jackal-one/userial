@@ -1,4 +1,4 @@
-#define USERIAL_IMPL
+#define USERIAL_IMPLEMENTATION
 #include "userial.h"
 
 int main(int argc, char** argv) {
