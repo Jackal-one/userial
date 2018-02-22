@@ -32,13 +32,28 @@ int userial_create_api(struct userial_api_i** userial_api, uint32_t flags);
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#if (__APPLE__)
-  #include <IOKit/serial/ioss.h>
-#endif // __APPLE__
+speed_t select_baud_rate(uint32_t baud_rate) {
+  switch(baud_rate) {
+    case 4800: return B4800;
+    case 9600: return B9600;
+  #ifdef B14400
+    case 14400: return B14400;
+  #endif
+    case 19200: return B19200;
+  #ifdef B28800
+    case 28800: return B28800;
+  #endif
+    case 38400: return B38400;
+    case 57600: return B57600;
+    case 115200: return B115200;
+  }
 
-int32_t unix_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
+  return baud_rate;
+}
+
+int32_t posix_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
   int fd = open(serial_port, O_RDWR | O_NONBLOCK);
-  if (fd == -1) {
+  if (fd != 0) {
     printf("userial: couldn't open %s port!\n", serial_port);
     return 0;
   }
@@ -46,28 +61,16 @@ int32_t unix_userial_open(const char* serial_port, uint32_t baud_rate, struct us
   struct termios options;
   tcgetattr(fd, &options);
 
-  speed_t baud = baud_rate;
-  switch(baud) {
-    case 4800:    baud = B4800; break;
-    case 9600:    baud = B9600; break;
-#ifdef B14400
-    case 14400:   baud = B14400; break;
-#endif
-    case 19200:   baud = B19200; break;
-#ifdef B28800
-    case 28800:   baud = B28800; break;
-#endif
-    case 38400:   baud = B38400; break;
-    case 57600:   baud = B57600; break;
-    case 115200:  baud = B115200; break;
-  }
-
-  cfsetispeed(&options, baud);
-  cfsetospeed(&options, baud);
-
-  if (ioctl(fd, IOSSIOSPEED, &baud, 1) == -1) {
+  speed_t baud = select_baud_rate(baud_rate);
+  
+  if (cfsetispeed(&options, baud) != 0) {
     printf("userial: failed to set baud rate of %d!\n", baud_rate);
     return 0;
+  }
+
+  if (cfsetospeed(&options, baud) != 0) {
+     printf("userial: failed to set baud rate of %d!\n", baud_rate);
+    return 0;   
   }
 
   options.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ISIG | IEXTEN);
@@ -79,7 +82,7 @@ int32_t unix_userial_open(const char* serial_port, uint32_t baud_rate, struct us
   options.c_cc[VMIN] = 0;
   options.c_cc[VTIME] = 0;
 
-  if (tcsetattr(fd, TCSANOW, &options) == -1) {
+  if (tcsetattr(fd, TCSANOW, &options) != 0) {
     printf("userial: failed to set port attributes!\n");
     return 0;
   }
@@ -89,24 +92,24 @@ int32_t unix_userial_open(const char* serial_port, uint32_t baud_rate, struct us
   return 1;
 }
 
-int32_t unix_close(struct userial_port_t* port) {
+int32_t posix_close(struct userial_port_t* port) {
   return close(port->handle);
 }
 
-int unix_write(struct userial_port_t* port, uint8_t data) {
+int posix_write(struct userial_port_t* port, uint8_t data) {
   const int written_bytes = write(port->handle, &data, 1u);
   return (written_bytes == 1);
 }
 
-int unix_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+int posix_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
   return read(port->handle, data, num_bytes);
 }
 
 static struct userial_api_i g_userial_api = {
-  .open = unix_userial_open,
-  .close = unix_close,
-  .write = unix_write,
-  .read = unix_read,
+  .open = posix_userial_open,
+  .close = posix_close,
+  .write = posix_write,
+  .read = posix_read,
 };
 
 int userial_create_api(struct userial_api_i** userial_api, uint32_t flags) {
