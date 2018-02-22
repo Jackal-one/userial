@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 struct userial_port_t {
-  uint32_t handle;
+  uint64_t handle;
 };
 
 struct userial_api_i {
@@ -25,7 +25,20 @@ int userial_create_api(struct userial_api_i** userial_api, uint32_t flags);
 }
 #endif
 
-#ifdef USERIAL_IMPL
+#ifdef USERIAL_IMPLEMENTATION
+
+#if defined(__unix__)
+  #define USERIAL_PLATFORM_POSIX
+#elif defined(__APPLE__) && defined(__MACH__)
+  #include "TargetConditionals.h"
+  #if TARGET_OS_MAC == 1
+    #define USERIAL_PLATFORM_POSIX
+  #endif
+#elif defined(_WIN32)
+  #define USERIAL_PLATFORM_WINDOWS
+#endif
+
+#if defined(USERIAL_PLATFORM_POSIX)
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -129,6 +142,86 @@ static struct userial_api_i g_userial_api = {
   .write = posix_write_bytes,
   .read = posix_read,
 };
+
+#elif defined(USERIAL_PLATFORM_WINDOWS)
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+
+int32_t win32_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
+  HANDLE handle = CreateFile(serial_port,
+    GENERIC_READ | GENERIC_WRITE,
+    0, NULL, OPEN_EXISTING, 0, NULL);
+
+  if (handle == INVALID_HANDLE_VALUE) {
+    printf("userial: couldn't open %s port!\n", serial_port);
+    return 0;
+  }
+
+  DCB dcb_params = { 0 };
+  dcb_params.DCBlength = sizeof(dcb_params);
+
+  GetCommState(handle, &dcb_params);
+  dcb_params.BaudRate = baud_rate;
+  dcb_params.ByteSize = 8u;
+  dcb_params.StopBits = ONESTOPBIT;
+  dcb_params.Parity = NOPARITY;
+  dcb_params.fDtrControl = DTR_CONTROL_ENABLE;
+
+  if (!SetCommState(handle, &dcb_params)) {
+    printf("userial: failed to configure port!\n");
+    return 0;
+  }
+
+  PurgeComm(handle, PURGE_RXCLEAR | PURGE_TXCLEAR);
+  port->handle = (uint64_t)handle;
+
+  return 1;
+}
+
+int32_t win32_close(struct userial_port_t* port) {
+  return CloseHandle((HANDLE)port->handle);
+}
+
+int win32_write_byte(struct userial_port_t* port, uint8_t data) {
+  DWORD written_bytes = 0u;
+  WriteFile((HANDLE)port->handle, &data, 1u, &written_bytes, NULL);
+  return (written_bytes == 1);
+}
+
+int win32_write_bytes(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+  size_t total_written_bytes = 0;
+  while (total_written_bytes < num_bytes) {
+    const size_t remaining_bytes = num_bytes - total_written_bytes;
+    DWORD written_bytes = 0u;
+
+    if (!WriteFile((HANDLE)port->handle, &data[written_bytes],
+      remaining_bytes, &written_bytes, NULL)) {
+      return -1;
+    }
+    
+    total_written_bytes += written_bytes;
+  }
+
+  return total_written_bytes;
+}
+
+int win32_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+  DWORD read_bytes = 0u;
+  ReadFile((HANDLE)port->handle, data, num_bytes, &read_bytes, NULL);
+  return read_bytes;
+}
+
+static struct userial_api_i g_userial_api = {
+  win32_userial_open,
+  win32_close,
+  win32_write_byte,
+  win32_write_bytes,
+  win32_read,
+};
+
+#endif
 
 int userial_create_api(struct userial_api_i** userial_api, uint32_t flags) {
   (*userial_api) = &g_userial_api;
