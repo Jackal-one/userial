@@ -27,6 +27,19 @@ int userial_create_api(struct userial_api_i** userial_api, uint32_t flags);
 
 #ifdef USERIAL_IMPLEMENTATION
 
+#if defined(__unix__)
+  #define USERIAL_PLATFORM_POSIX
+#elif defined(__APPLE__) && defined(__MACH__)
+  #include "TargetConditionals.h"
+  #if TARGET_OS_MAC == 1
+    #define USERIAL_PLATFORM_POSIX
+  #endif
+#elif defined(_WIN32)
+  #define USERIAL_PLATFORM_WINDOWS
+#endif
+
+#if defined(USERIAL_PLATFORM_POSIX)
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h> 
@@ -129,6 +142,53 @@ static struct userial_api_i g_userial_api = {
   .write = posix_write_bytes,
   .read = posix_read,
 };
+
+#elif defined(USERIAL_PLATFORM_WINDOWS)
+
+int32_t win32_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
+
+
+  return 1;
+}
+
+int32_t win32_close(struct userial_port_t* port) {
+  return close(port->handle);
+}
+
+int win32_write_byte(struct userial_port_t* port, uint8_t data) {
+  const int written_bytes = write(port->handle, &data, 1u);
+  return (written_bytes == 1);
+}
+
+int win32_write_bytes(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+  int written_bytes = 0;
+  while (written_bytes < num_bytes) {
+    const size_t remaining_bytes = num_bytes - written_bytes;
+    const int ret = write(port->handle, &data[written_bytes], remaining_bytes);
+    
+    if (ret == -1) {
+      return -1;
+    }
+
+    written_bytes += ret;
+  }
+
+  return written_bytes;
+}
+
+int win32_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+  return read(port->handle, data, num_bytes);
+}
+
+static struct userial_api_i g_userial_api = {
+  .open = win32_userial_open,
+  .close = win32_close,
+  .write_byte = win32_write_byte,
+  .write = win32_write_bytes,
+  .read = win32_read,
+};
+
+#endif
 
 int userial_create_api(struct userial_api_i** userial_api, uint32_t flags) {
   (*userial_api) = &g_userial_api;
