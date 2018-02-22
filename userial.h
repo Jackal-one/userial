@@ -67,7 +67,7 @@ speed_t select_baud_rate(uint32_t baud_rate) {
 
 int32_t posix_userial_open(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port) {
   int fd = open(serial_port, O_RDWR | O_NONBLOCK);
-  if (fd != 0) {
+  if (fd < 0) {
     printf("userial: couldn't open %s port!\n", serial_port);
     return 0;
   }
@@ -77,12 +77,12 @@ int32_t posix_userial_open(const char* serial_port, uint32_t baud_rate, struct u
 
   speed_t baud = select_baud_rate(baud_rate);
   
-  if (cfsetispeed(&options, baud) != 0) {
+  if (cfsetispeed(&options, baud) < 0) {
     printf("userial: failed to set baud rate of %d!\n", baud_rate);
     return 0;
   }
 
-  if (cfsetospeed(&options, baud) != 0) {
+  if (cfsetospeed(&options, baud) < 0) {
      printf("userial: failed to set baud rate of %d!\n", baud_rate);
     return 0;   
   }
@@ -96,7 +96,7 @@ int32_t posix_userial_open(const char* serial_port, uint32_t baud_rate, struct u
   options.c_cc[VMIN] = 0;
   options.c_cc[VTIME] = 0;
 
-  if (tcsetattr(fd, TCSANOW, &options) != 0) {
+  if (tcsetattr(fd, TCSANOW, &options) < 0) {
     printf("userial: failed to set port attributes!\n");
     return 0;
   }
