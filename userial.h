@@ -14,7 +14,8 @@ struct userial_port_t {
 struct userial_api_i {
   int (*open)(const char* serial_port, uint32_t baud_rate, struct userial_port_t* port);
   int (*close)(struct userial_port_t* port);
-  int (*write)(struct userial_port_t* port, uint8_t data);
+  int (*write_byte)(struct userial_port_t* port, uint8_t data);
+  int (*write)(struct userial_port_t* port, uint8_t* data, size_t num_bytes);
   int (*read)(struct userial_port_t* port, uint8_t* data, size_t num_bytes);
 };
 
@@ -96,9 +97,25 @@ int32_t posix_close(struct userial_port_t* port) {
   return close(port->handle);
 }
 
-int posix_write(struct userial_port_t* port, uint8_t data) {
+int posix_write_byte(struct userial_port_t* port, uint8_t data) {
   const int written_bytes = write(port->handle, &data, 1u);
   return (written_bytes == 1);
+}
+
+int posix_write_bytes(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
+  int written_bytes = 0;
+  while (written_bytes < num_bytes) {
+    const size_t remaining_bytes = num_bytes - written_bytes;
+    const int ret = write(port->handle, &data[written_bytes], remaining_bytes);
+    
+    if (ret == -1) {
+      return -1;
+    }
+
+    written_bytes += ret;
+  }
+
+  return written_bytes;
 }
 
 int posix_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
@@ -108,7 +125,8 @@ int posix_read(struct userial_port_t* port, uint8_t* data, size_t num_bytes) {
 static struct userial_api_i g_userial_api = {
   .open = posix_userial_open,
   .close = posix_close,
-  .write = posix_write,
+  .write_byte = posix_write_byte,
+  .write = posix_write_bytes,
   .read = posix_read,
 };
 
