@@ -25,7 +25,7 @@ int userial_create_api(struct userial_api_i** userial_api, uint32_t flags);
 }
 #endif
 
-#ifdef USERIAL_IMPL
+#ifdef USERIAL_IMPLEMENTATION
 
 #include <stdio.h>
 #include <fcntl.h>
